@@ -1,0 +1,150 @@
+<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes"><meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="記録"><meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="manifest.json"><link rel="apple-touch-icon" href="icon-180.png"><meta name="theme-color" content="#0a84ff"><title>記録</title>
+<style>
+:root{--bg:#f2f2f7;--c:#fff;--t:#111;--s:#8e8e93;--a:#0a84ff;--b:#d1d1d6}
+@media(prefers-color-scheme:dark){:root{--bg:#000;--c:#1c1c1e;--t:#f2f2f7;--b:#3a3a3c}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--t);font:15px -apple-system,sans-serif;padding:env(safe-area-inset-top) 0 calc(70px + env(safe-area-inset-bottom))}
+.card{background:var(--c);margin:10px;padding:12px;border-radius:12px}
+input,select,button{font:inherit;color:inherit;background:var(--bg);border:1px solid var(--b);border-radius:8px;padding:9px;margin:3px 0;width:100%}
+.r{display:flex;gap:6px}.r>*{flex:1}
+button.pri{background:var(--a);color:#fff;border:0}
+nav{position:fixed;bottom:0;left:0;right:0;display:flex;background:var(--c);border-top:1px solid var(--b);padding-bottom:env(safe-area-inset-bottom)}
+nav button{border:0;background:none;border-radius:0;margin:0;padding:15px 0;color:var(--s)}nav .on{color:var(--a);font-weight:700}
+.chip{display:inline-block;padding:5px 10px;margin:3px;border-radius:99px;background:var(--bg);border:1px solid var(--b);font-size:13px}
+.seg{display:flex}.seg button.on{background:var(--a);color:#fff}
+h3{margin:12px 12px 0;font-size:13px;color:var(--s)}
+.it{display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-top:1px solid var(--b)}
+.it button{width:auto;padding:4px 10px;margin:0 0 0 4px}.m{color:var(--s);font-size:12px}
+input[type=checkbox]{width:auto;margin:0 8px 0 0}
+.bar{background:var(--a);height:12px;border-radius:4px;margin:2px 0}
+#toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:#333;color:#fff;padding:8px 14px;border-radius:99px;opacity:0;transition:.3s;pointer-events:none}
+</style></head><body><div id=main></div><nav id=nav></nav><div id=toast></div>
+<script>
+const K='kiroku1',q=x=>document.querySelector(x),m=(a,f)=>a.map(f).join(''),
+esc=x=>String(x??'').replace(/[&<>"]/g,c=>'&#'+c.charCodeAt(0)+';'),
+p2=n=>String(n).padStart(2,'0'),dt=d=>d.getFullYear()+'-'+p2(d.getMonth()+1)+'-'+p2(d.getDate()),td=()=>dt(new Date()),
+uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,6),N=n=>Number(n).toLocaleString('ja-JP'),
+dd=d=>d.replace(/-/g,'/'),md=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+d.getDate()},
+e1=(w,r)=>r==1?w:w*(1+r/30),tg=t=>t.split(/[,、，\s]+/).filter(Boolean);
+const P=[['ベンチプレス','胸'],['インクラインダンベルプレス','胸'],['ダンベルフライ','胸'],['デッドリフト','背中,脚'],['ラットプルダウン','背中'],['ベントオーバーロウ','背中'],['スクワット','脚'],['レッグプレス','脚'],['レッグエクステンション','脚'],['ショルダープレス','肩'],['サイドレイズ','肩'],['アームカール','腕'],['プッシュダウン','腕'],['クランチ','腹']];
+const D=()=>({cats:{exp:['食費','日用品','交通費','住居','光熱費','通信費','医療','娯楽','衣服','その他'],inc:['給与','副収入','その他']},tx:[],ex:P.map(([n,t])=>({id:uid(),name:n,tags:tg(t)})),sets:[],body:{},hist:[],set:{days:7,last:Date.now(),dash:{vol:1,bw:1,pro:1,fin:1},per:7}});
+let s=D();try{const o=JSON.parse(localStorage[K]||'null');if(o){s=Object.assign(D(),o);s.set=Object.assign(D().set,o.set)}}catch(e){}
+const save=()=>{localStorage[K]=JSON.stringify(s)};
+const ui={t:'k',ty:'exp',kd:td(),wd:td(),ex:null,keep:null,ok:'k',sel:new Set(),from:'',to:''};
+const toast=t=>{const e=q('#toast');e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1800)};
+const exn=id=>s.ex.find(e=>e.id==id)||{name:'(削除済)',tags:[]};
+const setNo=x=>s.sets.filter(y=>y.date==x.date&&y.ex==x.ex).indexOf(x)+1;
+const ds=a=>[...new Set(a.map(x=>x.date))].sort().reverse();
+
+function render(){
+q('#nav').innerHTML=m([['k','家計簿'],['w','筋トレ'],['d','集計'],['o','出力'],['c','設定']],([k,l])=>`<button class="${ui.t==k?'on':''}" onclick="ui.t='${k}';render()">${l}</button>`);
+const days=Math.floor((Date.now()-s.set.last)/864e5);
+q('#main').innerHTML=(days>=s.set.days?`<div class=card style="background:#ff9f0a;color:#000">前回のバックアップから${days}日経過<button onclick="backup()">今すぐ保存(共有シート)</button></div>`:'')+({k:rK,w:rW,d:rD,o:rO,c:rC})[ui.t]();
+if(ui.t=='w')selEx(ui.ex)}
+
+/* 家計簿 */
+function rK(){const ty=ui.ty,ms=td().slice(0,7),mt=s.tx.filter(x=>x.date.startsWith(ms)),sm=t=>mt.filter(x=>x.type==t).reduce((a,x)=>a+x.amt,0);
+return `<div class=card><div class=seg>${m([['exp','支出'],['inc','収入']],([k,l])=>`<button class="${ty==k?'on':''}" onclick="ui.ty='${k}';render()">${l}</button>`)}</div>
+<input type=date id=kd value="${ui.kd}" onchange="ui.kd=this.value">
+<input id=ka type=number inputmode=numeric placeholder=金額>
+<select id=kc>${m(s.cats[ty],c=>`<option>${esc(c)}</option>`)}</select>
+<input id=km placeholder=メモ><button class=pri onclick=addK()>追加</button>
+<div>${m(s.hist.map((x,i)=>[x,i]).filter(([x])=>x.type==ty),([x,i])=>`<span class=chip onclick="useH(${i})">${esc(x.cat)} ${N(x.amt)}${x.memo?' '+esc(x.memo):''}</span>`)}</div></div>
+<div class=card>今月 収入 ${N(sm('inc'))}円 / 支出 ${N(sm('exp'))}円</div>`+
+m(ds(s.tx),d=>`<h3>${dd(d)}</h3><div class=card>${m(s.tx.filter(x=>x.date==d),x=>`<div class=it><span>${x.type=='exp'?'−':'+'}${N(x.amt)}円 ${esc(x.cat)}<br><span class=m>${esc(x.memo)}</span></span><span><button onclick="editK('${x.id}')">✎</button><button onclick="delK('${x.id}')">✕</button></span></div>`)}</div>`)}
+function addK(){const a=+q('#ka').value;if(!(a>0))return toast('金額を入力してください');const x={id:uid(),date:ui.kd,type:ui.ty,amt:a,cat:q('#kc').value,memo:q('#km').value.trim()};s.tx.push(x);
+s.hist=[x,...s.hist.filter(h=>!(h.type==x.type&&h.cat==x.cat&&h.amt==x.amt&&h.memo==x.memo))].slice(0,20).map(({type,cat,amt,memo})=>({type,cat,amt,memo}));save();render();toast('追加しました')}
+function useH(i){const h=s.hist[i];q('#ka').value=h.amt;q('#kc').value=h.cat;q('#km').value=h.memo}
+function editK(id){const x=s.tx.find(y=>y.id==id),a=prompt('金額',x.amt);if(a===null)return;const c=prompt('カテゴリ',x.cat),mm=prompt('メモ',x.memo),d=prompt('日付(YYYY-MM-DD)',x.date);
+if(+a>0)x.amt=+a;if(c)x.cat=c;if(mm!==null)x.memo=mm;if(/^\d{4}-\d\d-\d\d$/.test(d||''))x.date=d;delete x.x;save();render()}
+function delK(id){if(confirm('削除しますか?')){s.tx=s.tx.filter(x=>x.id!=id);save();render()}}
+
+/* 筋トレ */
+function rW(){const d=ui.wd,b=s.body[d]||{};
+return `<div class=card><input type=date value="${d}" onchange="ui.wd=this.value;render()">
+<div class=r><input id=bw type=number step=0.1 placeholder=体重kg value="${b.bw??''}"><input id=bp type=number placeholder=タンパク質g value="${b.pro??''}"></div><button onclick=saveB()>体重・タンパク質を保存</button></div>
+<div class=card><select id=ex onchange="ui.keep=null;selEx(this.value)">${m(s.ex,e=>`<option value=${e.id}>${esc(e.name)}(${esc(e.tags.join('・'))})</option>`)}</select>
+<div class=r><button onclick=addE()>種目追加</button><button onclick=editE()>種目編集</button></div>
+<div class=m id=prev></div>
+<div class=r><input id=sw type=number step=0.5 inputmode=decimal placeholder=kg><input id=sr type=number inputmode=numeric placeholder=回数></div><button class=pri onclick=addS()>セット追加</button></div>
+<div class=card><b>%重量計算</b><select id=rb onchange=calc()></select><div class=r><input id=rp type=number value=80 oninput=calc()><span style="align-self:center">%</span></div><div id=rr></div></div>`+
+m([...new Set([...s.sets.map(x=>x.date),...Object.keys(s.body)])].sort().reverse(),d=>{const b=s.body[d],a=s.sets.filter(x=>x.date==d);
+return `<h3>${dd(d)}${b?` 体重${b.bw??'-'}kg タンパク質${b.pro??'-'}g`:''}</h3><div class=card>${m([...new Set(a.map(x=>x.ex))],id=>{const e=exn(id),g=a.filter(x=>x.ex==id);
+return `<b>${esc(e.name)}</b> <span class=m>${esc(e.tags.join('・'))} / Vol ${N(g.reduce((p,x)=>p+x.w*x.r,0))}</span>`+m(g,x=>`<div class=it><span>${setNo(x)}: ${x.w}kg×${x.r}回 <span class=m>1RM ${e1(x.w,x.r).toFixed(1)}</span></span><span><button onclick="editS('${x.id}')">✎</button><button onclick="delS('${x.id}')">✕</button></span></div>`)}).join('')||'<span class=m>セット記録なし</span>'}</div>`})}
+function selEx(id){id=id||ui.ex||(s.ex[0]||{}).id;if(!id)return;ui.ex=id;q('#ex').value=id;
+const S=s.sets.filter(x=>x.ex==id),pv=S.filter(x=>x.date<ui.wd).map(x=>x.date).sort().pop(),pa=S.filter(x=>x.date==pv),k=ui.keep||(pa.length?pa[pa.length-1]:null);
+q('#prev').textContent=pv?`前回 ${pv}: `+pa.map(x=>x.w+'×'+x.r).join(', '):'前回記録なし';
+if(k){q('#sw').value=k.w;q('#sr').value=k.r}
+const mx=Math.max(0,...S.map(x=>e1(x.w,x.r)));
+q('#rb').innerHTML=`<option value=max>歴代Max 推定1RM ${mx.toFixed(1)}kg</option>`+m(S.slice().reverse(),x=>`<option value=${x.id}>${x.date} ${x.w}×${x.r}(1RM ${e1(x.w,x.r).toFixed(1)})</option>`);calc()}
+function calc(){const S=s.sets.filter(x=>x.ex==ui.ex),v=q('#rb').value,o=s.sets.find(x=>x.id==v),b=v=='max'?Math.max(0,...S.map(x=>e1(x.w,x.r))):(o?e1(o.w,o.r):0),p=+q('#rp').value;
+q('#rr').innerHTML=b?`基準 ${b.toFixed(1)}kg × ${p}% = <b style="font-size:22px">${Math.round(b*p/100*2)/2}kg</b>`:'記録なし'}
+function addS(){const w=+q('#sw').value,r=+q('#sr').value;if(!(w>=0)||!(r>0)||!ui.ex)return toast('重量と回数を入力');s.sets.push({id:uid(),date:ui.wd,ex:ui.ex,w,r});ui.keep={w,r};save();render();toast('追加しました')}
+function saveB(){const f=v=>v===''?null:+v,bw=f(q('#bw').value),pro=f(q('#bp').value);if(bw==null&&pro==null)delete s.body[ui.wd];else s.body[ui.wd]={bw,pro};save();render();toast('保存しました')}
+function addE(){const n=(prompt('種目名')||'').trim();if(!n)return;const t=prompt('部位タグ(カンマ区切り) 例: 背中,脚')||'',e={id:uid(),name:n,tags:tg(t)};s.ex.push(e);ui.ex=e.id;ui.keep=null;save();render()}
+function editE(){const e=s.ex.find(x=>x.id==ui.ex);if(!e)return;const n=prompt('種目名(空欄で削除)',e.name);if(n===null)return;
+if(!n.trim()){if(s.sets.some(x=>x.ex==e.id))return alert('記録がある種目は削除できません');if(confirm('削除しますか?')){s.ex=s.ex.filter(x=>x!=e);ui.ex=null}}
+else{e.name=n.trim();const t=prompt('部位タグ(カンマ区切り)',e.tags.join(','));if(t!==null)e.tags=tg(t)}save();render()}
+function editS(id){const x=s.sets.find(y=>y.id==id),w=prompt('重量kg',x.w);if(w===null)return;const r=prompt('回数',x.r);if(w!==''&&+w>=0)x.w=+w;if(+r>0)x.r=+r;delete x.x;save();render()}
+function delS(id){if(confirm('削除しますか?')){s.sets=s.sets.filter(x=>x.id!=id);save();render()}}
+
+/* 集計 */
+function ch(v,type){const k=v.filter(x=>x!=null);if(!k.length)return'<div class=m>データなし</div>';const mx=Math.max(...k),mn=type=='line'?Math.min(...k):0,w=300,h=100,sx=w/v.length,y=x=>h-6-(x-mn)/((mx-mn)||1)*(h-14);
+const g=type=='line'?`<polyline fill=none stroke="#0a84ff" stroke-width=2 points="${v.map((x,i)=>x==null?'':`${(i+.5)*sx},${y(x)}`).filter(Boolean).join(' ')}"/>`+v.map((x,i)=>x==null?'':`<circle cx="${(i+.5)*sx}" cy="${y(x)}" r=2.5 fill="#0a84ff"/>`).join(''):v.map((x,i)=>x?`<rect x="${i*sx+.5}" y="${y(x)}" width="${Math.max(sx-1,1)}" height="${h-6-y(x)}" fill="#0a84ff"/>`:'').join('');
+return `<svg viewBox="0 0 ${w} ${h}" style="width:100%">${g}</svg><div class=m>最小 ${mn} / 最大 ${mx}</div>`}
+function rD(){const n=s.set.per,b=new Date(),days=[...Array(n)].map((_,i)=>dt(new Date(b.getFullYear(),b.getMonth(),b.getDate()-n+1+i))),f=days[0],dc=s.set.dash,
+S=s.sets.filter(x=>x.date>=f),T=s.tx.filter(x=>x.date>=f),vt={};
+S.forEach(x=>exn(x.ex).tags.forEach(t=>vt[t]=(vt[t]||0)+x.w*x.r));const vm=Math.max(1,...Object.values(vt)),sm=t=>T.filter(x=>x.type==t).reduce((a,x)=>a+x.amt,0);
+const box=(k,l,body)=>dc[k]?`<div class=card><b>${l}</b>${body}</div>`:'';
+return `<div class=card><div class=seg>${[[7,'週'],[30,'月'],[90,'3か月']].map(([v,l])=>`<button class="${n==v?'on':''}" onclick="s.set.per=${v};save();render()">${l}</button>`).join('')}</div>
+${[['vol','部位別ボリューム'],['bw','体重'],['pro','タンパク質'],['fin','家計の収支']].map(([k,l])=>`<label style="margin-right:10px;white-space:nowrap"><input type=checkbox ${dc[k]?'checked':''} onchange="s.set.dash.${k}=this.checked?1:0;save();render()">${l}</label>`).join('')}</div>`+
+box('vol','部位別ボリューム(kg×回)',Object.keys(vt).length?Object.entries(vt).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<div class=m>${esc(t)} ${N(v)}</div><div class=bar style="width:${v/vm*100}%"></div>`).join(''):'<div class=m>データなし</div>')+
+box('bw','体重(kg)',ch(days.map(d=>s.body[d]?.bw??null),'line'))+box('pro','タンパク質(g)',ch(days.map(d=>s.body[d]?.pro??0),'bar'))+
+box('fin','家計の収支',`<div class=m>収入 ${N(sm('inc'))}円 / 支出 ${N(sm('exp'))}円 / 差引 ${N(sm('inc')-sm('exp'))}円</div><div class=m>日別支出</div>`+ch(days.map(d=>T.filter(x=>x.date==d&&x.type=='exp').reduce((a,x)=>a+x.amt,0)),'bar'))}
+
+/* 出力 */
+const items=k=>(k=='k'?s.tx.map(x=>({key:x.id,date:x.date,x:x.x,l:`${x.type=='exp'?'支出':'収入'} ${N(x.amt)}円 ${x.cat}${x.memo?'('+x.memo+')':''}`})):
+[...s.sets.map(x=>({key:x.id,date:x.date,x:x.x,l:`${exn(x.ex).name} ${setNo(x)}: ${x.w}kg×${x.r}`})),...Object.entries(s.body).map(([d,b])=>({key:'b'+d,date:d,x:b.x,l:`体重${b.bw??'-'}kg タンパク質${b.pro??'-'}g`}))])
+.filter(x=>(!ui.from||x.date>=ui.from)&&(!ui.to||x.date<=ui.to)).sort((a,b)=>b.date.localeCompare(a.date));
+function rO(){const it=items(ui.ok);
+return `<div class=card><div class=seg>${[['k','家計簿'],['w','筋トレ']].map(([k,l])=>`<button class="${ui.ok==k?'on':''}" onclick="ui.ok='${k}';ui.sel=new Set();render()">${l}</button>`).join('')}</div>
+<div class=r><input type=date value="${ui.from}" onchange="ui.from=this.value;render()"><input type=date value="${ui.to}" onchange="ui.to=this.value;render()"></div>
+<div class=r><button onclick=allS(1)>全選択</button><button onclick=allS(0)>全解除</button></div>
+<div class=r><button class=pri onclick=outC()>コピー</button><button class=pri onclick=outV()>CSV</button></div><div class=m id=cnt>${ui.sel.size}件選択中(「済」は出力済み)</div></div>`+
+m(ds(it),d=>`<div class=card><label><input type=checkbox onchange="tD('${d}',this.checked)"><b>${dd(d)}</b></label>${m(it.filter(x=>x.date==d),x=>`<label class=it><span><input type=checkbox data-d="${d}" data-k="${x.key}" ${ui.sel.has(x.key)?'checked':''} onchange="tK('${x.key}',this.checked)">${esc(x.l)}</span>${x.x?`<span class=m>済 ${md(x.x)}</span>`:''}</label>`)}</div>`)}
+function cnt(){q('#cnt').textContent=ui.sel.size+'件選択中(「済」は出力済み)'}
+function tK(k,on){on?ui.sel.add(k):ui.sel.delete(k);cnt()}
+function tD(d,on){document.querySelectorAll(`[data-d="${d}"]`).forEach(e=>{e.checked=on;on?ui.sel.add(e.dataset.k):ui.sel.delete(e.dataset.k)});cnt()}
+function allS(on){ui.sel=on?new Set(items(ui.ok).map(x=>x.key)):new Set();render()}
+function getSel(){return items(ui.ok).filter(x=>ui.sel.has(x.key))}
+function warn(a){const d=a.filter(x=>x.x);if(!d.length)return true;const c={};d.forEach(x=>{const k=md(x.x);c[k]=(c[k]||0)+1});
+return confirm(Object.entries(c).map(([k,v])=>`${v}件は${k}に出力済みです`).join('\n')+`\n(選択${a.length}件中 計${d.length}件が重複)\nそれでも出力しますか?`)}
+function mark(a){const t=Date.now();a.forEach(i=>{const o=s.tx.find(x=>x.id==i.key)||s.sets.find(x=>x.id==i.key)||(i.key[0]=='b'&&s.body[i.key.slice(1)]);if(o)o.x=t});save();render()}
+async function cp(t){try{await navigator.clipboard.writeText(t)}catch(e){const a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove()}}
+const txtK=a=>{const ks=new Set(a.map(x=>x.key)),T=s.tx.filter(x=>ks.has(x.id));return[...new Set(T.map(x=>x.date))].sort().map(d=>{const g=T.filter(x=>x.date==d),sm=t=>g.filter(x=>x.type==t).reduce((p,x)=>p+x.amt,0);
+return `【家計簿 ${dd(d)}】\n`+m(g,x=>`${x.type=='exp'?'支出':'収入'} ${N(x.amt)}円 ${x.cat}${x.memo?'('+x.memo+')':''}\n`)+`収入合計 ${N(sm('inc'))}円 / 支出合計 ${N(sm('exp'))}円`}).join('\n\n')};
+const txtW=a=>{const ks=new Set(a.map(x=>x.key)),S=s.sets.filter(x=>ks.has(x.id)),B=Object.keys(s.body).filter(d=>ks.has('b'+d));
+return[...new Set([...S.map(x=>x.date),...B])].sort().map(d=>{const b=B.includes(d)?s.body[d]:null,h=b?[b.bw!=null?`体重 ${b.bw}kg`:'',b.pro!=null?`タンパク質 ${b.pro}g`:''].filter(Boolean).join(' / '):'',g=S.filter(x=>x.date==d);
+return `【筋トレ ${dd(d)}】${h}\n`+m([...new Set(g.map(x=>x.ex))],id=>{const e=exn(id);return `■${e.name}(${e.tags.join('・')})\n`+m(g.filter(x=>x.ex==id),x=>` ${setNo(x)}: ${x.w}kg×${x.r}\n`)}).trim()}).join('\n\n')};
+async function outC(){const a=getSel();if(!a.length)return toast('記録を選択してください');if(!warn(a))return;await cp(ui.ok=='k'?txtK(a):txtW(a));mark(a);toast('クリップボードにコピーしました')}
+const csv=r=>r.map(c=>c.map(v=>`"${String(v??'').replace(/"/g,'""')}"`).join(',')).join('\r\n');
+async function outV(){const a=getSel();if(!a.length)return toast('記録を選択してください');if(!warn(a))return;const ks=new Set(a.map(x=>x.key));let r;
+if(ui.ok=='k')r=[['日付','種別','カテゴリ','金額','メモ'],...s.tx.filter(x=>ks.has(x.id)).sort((p,q)=>p.date.localeCompare(q.date)).map(x=>[x.date,x.type=='exp'?'支出':'収入',x.cat,x.amt,x.memo])];
+else r=[['日付','種別','種目','部位','セット','重量kg','回数','推定1RM','体重kg','タンパク質g'],...[...s.sets.filter(x=>ks.has(x.id)).map(x=>[x.date,'セット',exn(x.ex).name,exn(x.ex).tags.join('・'),setNo(x),x.w,x.r,e1(x.w,x.r).toFixed(1),'','']),...Object.keys(s.body).filter(d=>ks.has('b'+d)).map(d=>[d,'体重・タンパク質','','','','','','',s.body[d].bw,s.body[d].pro])].sort((p,q)=>p[0].localeCompare(q[0]))];
+if(await saveF((ui.ok=='k'?'kakeibo_':'training_')+td().replace(/-/g,'')+'.csv',csv(r),'text/csv')){mark(a)}}
+
+/* 設定・バックアップ */
+function dl(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}
+async function saveF(n,t,ty){const f=new File([ty=='text/csv'?'\ufeff'+t:t],n,{type:ty});try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return 1}}catch(e){if(e.name=='AbortError')return 0}dl(f);return 1}
+async function backup(){if(await saveF('kiroku_'+td()+'.json',JSON.stringify(s),'application/json')){s.set.last=Date.now();save();render();toast('バックアップしました')}}
+async function imp(f){if(!f)return;try{const o=JSON.parse(await f.text());if(!o.cats||!o.tx)throw 0;if(!confirm('現在のデータを上書きして読み込みますか?'))return;s=Object.assign(D(),o);s.set=Object.assign(D().set,o.set);save();render();toast('読み込みました')}catch(e){alert('読み込めないファイルです')}}
+function rC(){return `<div class=card><b>バックアップ</b><div class=m>最終: ${new Date(s.set.last).toLocaleDateString('ja-JP')}</div>
+<div class=r><button class=pri onclick=backup()>書き出し</button><button onclick="q('#imp').click()">読み込み</button></div><input id=imp type=file accept=.json hidden onchange=imp(this.files[0])>
+<div class=m>リマインド間隔(日)</div><input type=number min=1 value=${s.set.days} onchange="s.set.days=Math.max(1,+this.value||7);save()"></div>`+
+m([['exp','支出カテゴリ'],['inc','収入カテゴリ']],([k,l])=>`<div class=card><b>${l}</b> <span class=m>タップで編集</span><div>${m(s.cats[k],(c,i)=>`<span class=chip onclick="editC('${k}',${i})">${esc(c)}</span>`)}<span class=chip onclick="editC('${k}',-1)">＋追加</span></div></div>`)}
+function editC(k,i){const a=s.cats[k];if(i<0){const v=(prompt('カテゴリ名')||'').trim();if(v)a.push(v)}else{const v=prompt('名前(空欄で削除)',a[i]);if(v===null)return;v.trim()?a[i]=v.trim():a.splice(i,1)}save();render()}
+render();
+</script></body></html>
