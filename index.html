@@ -30,7 +30,7 @@ uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,8)+Math.rando
 dd=d=>d.replace(/-/g,'/'),md=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+d.getDate()},
 e1=(w,r)=>r==1?w:w*(1+r/30),tg=t=>t.split(/[,、，\s]+/).filter(Boolean);
 const P=[['ベンチプレス','胸'],['インクラインダンベルプレス','胸'],['ダンベルフライ','胸'],['デッドリフト','背中,脚'],['ラットプルダウン','背中'],['ベントオーバーロウ','背中'],['スクワット','脚'],['レッグプレス','脚'],['レッグエクステンション','脚'],['ショルダープレス','肩'],['サイドレイズ','肩'],['アームカール','腕'],['プッシュダウン','腕'],['クランチ','腹']];
-const D=()=>({cats:{exp:['食費','日用品','交通費','住居','光熱費','通信費','医療','娯楽','衣服','その他'],inc:['給与','副収入','その他']},tx:[],ex:P.map(([n,t])=>({id:uid(),name:n,tags:tg(t)})),sets:[],body:{},hist:[],set:{days:7,last:Date.now(),dash:{vol:1,bw:1,pro:1,fin:1},per:7}});
+const D=()=>({cats:{exp:['食費','日用品','交通費','住居','光熱費','通信費','医療','娯楽','衣服','その他'],inc:['給与','副収入','その他']},tx:[],ex:P.map(([n,t])=>({id:uid(),name:n,tags:tg(t)})),sets:[],body:{},hist:[],set:{days:7,last:Date.now(),dash:{vol:1,bw:1,pro:1,fin:1,big:1},per:7}});
 let s=D();
 function norm(o){o=o||{};const d=D(),dc=d.cats,dset=d.set,ddash=d.set.dash,r=Object.assign(d,o),io=v=>!!v&&typeof v=='object',iv=v=>/^[A-Za-z0-9_-]+$/.test(String(v??''));r.cats=Object.assign({},dc,o.cats||{});if(!Array.isArray(r.cats.exp))r.cats.exp=dc.exp;if(!Array.isArray(r.cats.inc))r.cats.inc=dc.inc;['tx','sets','ex','hist'].forEach(k=>{if(!Array.isArray(r[k]))r[k]=[]});r.tx=r.tx.filter(io);r.sets=r.sets.filter(io);r.ex=r.ex.filter(io);r.hist=r.hist.filter(io).map(h=>({type:h.type=='inc'?'inc':'exp',cat:String(h.cat??''),amt:+h.amt||0,memo:String(h.memo??'')}));if(!r.body||typeof r.body!='object')r.body={};Object.keys(r.body).forEach(k=>{if(!io(r.body[k]))delete r.body[k]});r.set=Object.assign({},dset,o.set||{});r.set.dash=Object.assign({},ddash,(o.set&&o.set.dash)||{});r.set.per=[7,30,90].includes(r.set.per)?r.set.per:7;r.set.days=Math.min(365,Math.max(1,Math.round(+r.set.days)||7));if(!isFinite(r.set.last))r.set.last=Date.now();r.ex.forEach(e=>{if(typeof e.tags=='string')e.tags=tg(e.tags);if(!Array.isArray(e.tags))e.tags=[];if(!iv(e.id))e.id=uid();if(typeof e.name!='string')e.name='(無名)'});r.tx.forEach(x=>{if(!iv(x.id))x.id=uid();if(typeof x.date!='string')x.date=td();x.amt=+x.amt||0;if(x.type!='inc')x.type='exp'});r.sets.forEach(x=>{if(!iv(x.id))x.id=uid();if(typeof x.date!='string')x.date=td();x.w=+x.w||0;x.r=+x.r||0});return r}
 try{const o=JSON.parse(localStorage[K]||'null');if(o)s=norm(o)}catch(e){try{const raw=localStorage[K];if(raw)localStorage[K+'.broken']=raw}catch(e2){}}
@@ -104,17 +104,25 @@ function editS(id){const x=s.sets.find(y=>y.id==id);if(!x)return;const w=prompt(
 function delS(id){if(ui.arm!=id){ui.arm=id;render();toast('もう一度「削除」を押すと削除します');return}ui.arm=null;s.sets=s.sets.filter(x=>x.id!=id);const okS=save();render();if(okS)toast('削除しました')}
 
 /* 集計 */
+const PAL=['#0a84ff','#ff9f0a','#30d158','#bf5af2','#ff6482','#64d2ff','#ffd60a','#ac8e68'];
+const lg=(nm,c,ex)=>`<span style="margin-right:10px;white-space:nowrap"><span style="color:${c}">●</span> ${esc(nm)}${ex?' '+ex:''}</span>`;
+function chM(series){const all=series.flatMap(sr=>sr.vals).filter(v=>v!=null);if(!all.length)return'<div class=m>データなし</div>';let mx=Math.max(...all),mn=Math.min(...all);if(mx==mn){mx+=1;mn-=1}const w=300,h=100,sx=w/series[0].vals.length,y=v=>h-6-(v-mn)/(mx-mn)*(h-14),r1=v=>Math.round(v*10)/10;const g=series.map(sr=>{const pts=sr.vals.map((v,i)=>v==null?null:`${r1((i+.5)*sx)},${r1(y(v))}`).filter(Boolean);if(!pts.length)return'';return `<polyline fill=none stroke="${sr.color}" stroke-width=2 points="${pts.join(' ')}"/>`+sr.vals.map((v,i)=>v==null?'':`<circle cx="${r1((i+.5)*sx)}" cy="${r1(y(v))}" r=2.5 fill="${sr.color}"/>`).join('')}).join('');return `<svg viewBox="0 0 ${w} ${h}" style="width:100%">${g}</svg><div class=m>最小 ${r1(mn)} / 最大 ${r1(mx)}</div>`}
 function ch(v,type){const k=v.filter(x=>x!=null);if(!k.length||(type=='bar'&&k.every(v=>v==0)))return'<div class=m>データなし</div>';const mx=Math.max(...k),mn=type=='line'?Math.min(...k):0,w=300,h=100,sx=w/v.length,y=x=>h-6-(x-mn)/((mx-mn)||1)*(h-14);
 const g=type=='line'?`<polyline fill=none stroke="#0a84ff" stroke-width=2 points="${v.map((x,i)=>x==null?'':`${(i+.5)*sx},${y(x)}`).filter(Boolean).join(' ')}"/>`+v.map((x,i)=>x==null?'':`<circle cx="${(i+.5)*sx}" cy="${y(x)}" r=2.5 fill="#0a84ff"/>`).join(''):v.map((x,i)=>x?`<rect x="${i*sx+.5}" y="${y(x)}" width="${Math.max(sx-1,1)}" height="${h-6-y(x)}" fill="#0a84ff"/>`:'').join('');
 return `<svg viewBox="0 0 ${w} ${h}" style="width:100%">${g}</svg><div class=m>最小 ${mn} / 最大 ${mx}</div>`}
 function rD(){const n=s.set.per,b=new Date(),days=[...Array(n)].map((_,i)=>dt(new Date(b.getFullYear(),b.getMonth(),b.getDate()-n+1+i))),f=days[0],dc=s.set.dash,
 S=s.sets.filter(x=>x.date>=f&&x.date<=td()),T=s.tx.filter(x=>x.date>=f&&x.date<=td()),vt={};
-S.forEach(x=>exn(x.ex).tags.forEach(t=>vt[t]=(vt[t]||0)+x.w*x.r));const vm=Math.max(1,...Object.values(vt)),sm=t=>T.filter(x=>x.type==t).reduce((a,x)=>a+x.amt,0);
+S.forEach(x=>exn(x.ex).tags.forEach(t=>vt[t]=(vt[t]||0)+x.w*x.r));const sm=t=>T.filter(x=>x.type==t).reduce((a,x)=>a+x.amt,0);
 const box=(k,l,body)=>dc[k]?`<div class=card><b>${l}</b>${body}</div>`:'';
+const tags=Object.entries(vt).sort((a,b)=>b[1]-a[1]).map(x=>x[0]);
+const volBody=tags.length?`<div class=m>${tags.map((t,i)=>lg(t,PAL[i%PAL.length],N(vt[t]))).join('')}</div>`+chM(tags.map((t,i)=>({name:t,color:PAL[i%PAL.length],vals:days.map(d=>{const v=S.filter(x=>x.date==d&&exn(x.ex).tags.includes(t)).reduce((a,x)=>a+x.w*x.r,0);return v||null})}))):'<div class=m>データなし</div>';
+const B3=[['ベンチプレス',PAL[0]],['スクワット',PAL[1]],['デッドリフト',PAL[2]]].map(([nm,c])=>{const e=s.ex.find(x=>x.name==nm)||s.ex.find(x=>x.name.includes(nm));if(!e)return null;return{name:nm,color:c,vals:days.map(d=>{const v=S.filter(x=>x.ex==e.id&&x.date==d).map(x=>e1(x.w,x.r));return v.length?Math.round(Math.max(...v)*10)/10:null})}}).filter(Boolean);
+const bigBody=B3.some(sr=>sr.vals.some(v=>v!=null))?`<div class=m>${B3.map(sr=>{const last=[...sr.vals].reverse().find(v=>v!=null);return lg(sr.name,sr.color,last!=null?last+'kg':'記録なし')}).join('')}</div>`+chM(B3):'<div class=m>データなし</div>';
 return `<div class=card><div class=seg>${[[7,'週'],[30,'月'],[90,'3か月']].map(([v,l])=>`<button class="${n==v?'on':''}" onclick="s.set.per=${v};save();render()">${l}</button>`).join('')}</div>
-${[['vol','部位別ボリューム'],['bw','体重'],['pro','タンパク質'],['fin','家計の収支']].map(([k,l])=>`<label style="margin-right:10px;white-space:nowrap"><input type=checkbox ${dc[k]?'checked':''} onchange="s.set.dash.${k}=this.checked?1:0;save();render()">${l}</label>`).join('')}</div>`+
-box('vol','部位別ボリューム(kg×回)',Object.keys(vt).length?Object.entries(vt).sort((a,b)=>b[1]-a[1]).map(([t,v])=>`<div class=m>${esc(t)} ${N(v)}</div><div class=bar style="width:${v/vm*100}%"></div>`).join(''):'<div class=m>データなし</div>')+
-box('bw','体重(kg)',ch(days.map(d=>s.body[d]?.bw??null),'line'))+box('pro','タンパク質(g)',ch(days.map(d=>s.body[d]?.pro??0),'bar'))+
+${[['vol','部位別ボリューム'],['big','BIG3推定1RM'],['bw','体重'],['pro','タンパク質'],['fin','家計の収支']].map(([k,l])=>`<label style="margin-right:10px;white-space:nowrap"><input type=checkbox ${dc[k]?'checked':''} onchange="s.set.dash.${k}=this.checked?1:0;save();render()">${l}</label>`).join('')}</div>`+
+box('vol','部位別ボリューム(kg×回)',volBody)+
+box('big','BIG3 推定1RM(kg)',bigBody)+
+box('bw','体重(kg)',ch(days.map(d=>s.body[d]?.bw??null),'line'))+box('pro','タンパク質(g)',ch(days.map(d=>s.body[d]?.pro??null),'line'))+
 box('fin','家計の収支',`<div class=m>収入 ${N(sm('inc'))}円 / 支出 ${N(sm('exp'))}円 / 差引 ${N(sm('inc')-sm('exp'))}円</div><div class=m>日別支出</div>`+ch(days.map(d=>T.filter(x=>x.date==d&&x.type=='exp').reduce((a,x)=>a+x.amt,0)),'bar'))}
 
 /* 出力 */
