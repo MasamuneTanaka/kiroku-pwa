@@ -77,7 +77,7 @@ function delK(id){if(ui.arm!=id){ui.arm=id;render();toast('もう一度「削除
 function rW(){const d=ui.wd,b=s.body[d]||{};
 return `<div class=card><input type=date value="${d}" onchange="ui.wd=this.value;render()">
 <div class=r><input id=bw type=number step=0.1 placeholder=体重kg value="${b.bw??''}"><input id=bp type=number placeholder=タンパク質g value="${b.pro??''}"></div><button onclick=saveB()>体重・タンパク質を保存</button></div>
-<div class=card><select id=ex onchange="ui.keep=null;selEx(this.value)">${m(s.ex,e=>`<option value="${e.id}">${esc(e.name)}(${esc(e.tags.join('・'))})</option>`)}</select>
+<div class=card><select id=ex onchange="ui.keep=null;selEx(this.value)">${exOpts()}</select>
 <div class=r><button onclick=addE()>種目追加</button><button onclick=editE()>種目編集</button></div>
 <div class=m id=prev></div>
 <div class=r><input id=sw type=number step=0.5 inputmode=decimal placeholder=kg><input id=sr type=number inputmode=numeric placeholder=回数></div><button class=pri onclick=addS()>セット追加</button></div>
@@ -85,6 +85,7 @@ return `<div class=card><input type=date value="${d}" onchange="ui.wd=this.value
 m([...new Set([...s.sets.map(x=>x.date),...Object.keys(s.body)])].sort().reverse(),d=>{const b=s.body[d],a=s.sets.filter(x=>x.date==d);
 return `<h3>${dd(d)}${b?` 体重${b.bw??'-'}kg タンパク質${b.pro??'-'}g`:''}</h3><div class=card>${m([...new Set(a.map(x=>x.ex))],id=>{const e=exn(id),g=a.filter(x=>x.ex==id);
 return `<b>${esc(e.name)}</b> <span class=m>${esc(e.tags.join('・'))} / Vol ${N(g.reduce((p,x)=>p+x.w*x.r,0))}</span>`+m(g,x=>`<div class=it><span>${setNo(x)}: ${x.w}kg×${x.r}回 <span class=m>1RM ${e1(x.w,x.r).toFixed(1)}</span></span><span><button onclick="editS('${x.id}')">✎</button><button onclick="delS('${x.id}')"${ui.arm==x.id?' style="background:#ff3b30;color:#fff;border-color:#ff3b30"':''}>${ui.arm==x.id?'削除':'✕'}</button></span></div>`)} )||'<span class=m>セット記録なし</span>'}</div>`})}
+function exOpts(){const G=new Map();s.ex.forEach(e=>{const t=(e.tags&&e.tags[0])||'その他';if(!G.has(t))G.set(t,[]);G.get(t).push(e)});return[...G].map(([t,es])=>`<optgroup label="${esc(t)}">${m(es,e=>`<option value="${e.id}">${esc(e.name)}${e.tags.length>1?'('+esc(e.tags.slice(1).join('・'))+')':''}</option>`)}</optgroup>`).join('')}
 function selEx(id){id=id||ui.ex;if(!s.ex.some(e=>e.id==id))id=(s.ex[0]||{}).id;if(!id)return;ui.ex=id;q('#ex').value=id;
 const S=s.sets.filter(x=>x.ex==id),pv=S.filter(x=>x.date<ui.wd).map(x=>x.date).sort().pop(),pa=S.filter(x=>x.date==pv),k=ui.keep||(pa.length?pa[pa.length-1]:null);
 q('#prev').textContent=pv?`前回 ${pv}: `+pa.map(x=>x.w+'×'+x.r).join(', '):'前回記録なし';
