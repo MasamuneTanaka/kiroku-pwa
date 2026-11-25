@@ -31,8 +31,10 @@ dd=d=>d.replace(/-/g,'/'),md=t=>{const d=new Date(t);return(d.getMonth()+1)+'/'+
 e1=(w,r)=>r==1?w:w*(1+r/30),tg=t=>t.split(/[,、，\s]+/).filter(Boolean);
 const P=[['ベンチプレス','胸'],['インクラインダンベルプレス','胸'],['ダンベルフライ','胸'],['デッドリフト','背中,脚'],['ラットプルダウン','背中'],['ベントオーバーロウ','背中'],['スクワット','脚'],['レッグプレス','脚'],['レッグエクステンション','脚'],['ショルダープレス','肩'],['サイドレイズ','肩'],['アームカール','腕'],['プッシュダウン','腕'],['クランチ','腹']];
 const D=()=>({cats:{exp:['食費','日用品','交通費','住居','光熱費','通信費','医療','娯楽','衣服','その他'],inc:['給与','副収入','その他']},tx:[],ex:P.map(([n,t])=>({id:uid(),name:n,tags:tg(t)})),sets:[],body:{},hist:[],set:{days:7,last:Date.now(),dash:{vol:1,bw:1,pro:1,fin:1},per:7}});
-let s=D();try{const o=JSON.parse(localStorage[K]||'null');if(o){s=Object.assign(D(),o);s.set=Object.assign(D().set,o.set)}}catch(e){}
-const save=()=>{localStorage[K]=JSON.stringify(s)};
+let s=D();
+function norm(o){o=o||{};const d=D(),dc=d.cats,dset=d.set,ddash=d.set.dash,r=Object.assign(d,o);r.cats=Object.assign({},dc,o.cats||{});if(!Array.isArray(r.cats.exp))r.cats.exp=dc.exp;if(!Array.isArray(r.cats.inc))r.cats.inc=dc.inc;['tx','sets','ex','hist'].forEach(k=>{if(!Array.isArray(r[k]))r[k]=[]});if(!r.body||typeof r.body!='object')r.body={};Object.keys(r.body).forEach(k=>{if(!r.body[k]||typeof r.body[k]!='object')delete r.body[k]});r.set=Object.assign({},dset,o.set||{});r.set.dash=Object.assign({},ddash,(o.set&&o.set.dash)||{});r.ex.forEach(e=>{if(typeof e.tags=='string')e.tags=tg(e.tags);if(!Array.isArray(e.tags))e.tags=[];if(e.id==null)e.id=uid();if(typeof e.name!='string')e.name='(無名)'});r.tx.forEach(x=>{if(x.id==null)x.id=uid();if(typeof x.date!='string')x.date=td();x.amt=+x.amt||0;if(x.type!='inc')x.type='exp'});r.sets.forEach(x=>{if(x.id==null)x.id=uid();if(typeof x.date!='string')x.date=td();x.w=+x.w||0;x.r=+x.r||0});return r}
+try{const o=JSON.parse(localStorage[K]||'null');if(o)s=norm(o)}catch(e){}
+const save=()=>{try{localStorage[K]=JSON.stringify(s)}catch(e){}};
 const ui={t:'k',ty:'exp',kd:td(),wd:td(),ex:null,keep:null,ok:'k',sel:new Set(),from:'',to:''};
 const toast=t=>{const e=q('#toast');e.textContent=t;e.style.opacity=1;setTimeout(()=>e.style.opacity=0,1800)};
 const exn=id=>s.ex.find(e=>e.id==id)||{name:'(削除済)',tags:[]};
@@ -40,10 +42,12 @@ const setNo=x=>s.sets.filter(y=>y.date==x.date&&y.ex==x.ex).indexOf(x)+1;
 const ds=a=>[...new Set(a.map(x=>x.date))].sort().reverse();
 
 function render(){
-q('#nav').innerHTML=m([['k','家計簿'],['w','筋トレ'],['d','集計'],['o','出力'],['c','設定']],([k,l])=>`<button class="${ui.t==k?'on':''}" onclick="ui.t='${k}';render()">${l}</button>`);
+q('#nav').innerHTML=m([['k','家計簿'],['w','筋トレ'],['d','集計'],['o','出力'],['c','設定']],([k,l])=>`<button class="${ui.t==k?'on':''}" onclick="ui.t='${k}';ui.arm=null;render()">${l}</button>`);
 const days=Math.floor((Date.now()-s.set.last)/864e5);
-q('#main').innerHTML=(days>=s.set.days?`<div class=card style="background:#ff9f0a;color:#000">前回のバックアップから${days}日経過<button onclick="backup()">今すぐ保存(共有シート)</button></div>`:'')+({k:rK,w:rW,d:rD,o:rO,c:rC})[ui.t]();
-if(ui.t=='w')selEx(ui.ex)}
+const pre=days>=s.set.days?`<div class=card style="background:#ff9f0a;color:#000">前回のバックアップから${days}日経過<button onclick="backup()">今すぐ保存(共有シート)</button></div>`:'';
+let h='';try{h=({k:rK,w:rW,d:rD,o:rO,c:rC})[ui.t]()}catch(e){console.error('render',e);h=`<div class=card>画面の表示でエラーが発生しました。データは消えていません。<br><span class=m>${esc(e.message)}</span></div>`}
+q('#main').innerHTML=pre+h;
+if(ui.t=='w'){try{selEx(ui.ex)}catch(e){console.error('selEx',e)}}}
 
 /* 家計簿 */
 function rK(){const ty=ui.ty,ms=td().slice(0,7),mt=s.tx.filter(x=>x.date.startsWith(ms)),sm=t=>mt.filter(x=>x.type==t).reduce((a,x)=>a+x.amt,0);
@@ -54,13 +58,13 @@ return `<div class=card><div class=seg>${m([['exp','支出'],['inc','収入']],(
 <input id=km placeholder=メモ><button class=pri onclick=addK()>追加</button>
 <div>${m(s.hist.map((x,i)=>[x,i]).filter(([x])=>x.type==ty),([x,i])=>`<span class=chip onclick="useH(${i})">${esc(x.cat)} ${N(x.amt)}${x.memo?' '+esc(x.memo):''}</span>`)}</div></div>
 <div class=card>今月 収入 ${N(sm('inc'))}円 / 支出 ${N(sm('exp'))}円</div>`+
-m(ds(s.tx),d=>`<h3>${dd(d)}</h3><div class=card>${m(s.tx.filter(x=>x.date==d),x=>`<div class=it><span>${x.type=='exp'?'−':'+'}${N(x.amt)}円 ${esc(x.cat)}<br><span class=m>${esc(x.memo)}</span></span><span><button onclick="editK('${x.id}')">✎</button><button onclick="delK('${x.id}')">✕</button></span></div>`)}</div>`)}
+m(ds(s.tx),d=>`<h3>${dd(d)}</h3><div class=card>${m(s.tx.filter(x=>x.date==d),x=>`<div class=it><span>${x.type=='exp'?'−':'+'}${N(x.amt)}円 ${esc(x.cat)}<br><span class=m>${esc(x.memo)}</span></span><span><button onclick="editK('${x.id}')">✎</button><button onclick="delK('${x.id}')"${ui.arm==x.id?' style="background:#ff3b30;color:#fff;border-color:#ff3b30"':''}>${ui.arm==x.id?'削除':'✕'}</button></span></div>`)}</div>`)}
 function addK(){const a=+q('#ka').value;if(!(a>0))return toast('金額を入力してください');const x={id:uid(),date:ui.kd,type:ui.ty,amt:a,cat:q('#kc').value,memo:q('#km').value.trim()};s.tx.push(x);
 s.hist=[x,...s.hist.filter(h=>!(h.type==x.type&&h.cat==x.cat&&h.amt==x.amt&&h.memo==x.memo))].slice(0,20).map(({type,cat,amt,memo})=>({type,cat,amt,memo}));save();render();toast('追加しました')}
 function useH(i){const h=s.hist[i];q('#ka').value=h.amt;q('#kc').value=h.cat;q('#km').value=h.memo}
 function editK(id){const x=s.tx.find(y=>y.id==id),a=prompt('金額',x.amt);if(a===null)return;const c=prompt('カテゴリ',x.cat),mm=prompt('メモ',x.memo),d=prompt('日付(YYYY-MM-DD)',x.date);
 if(+a>0)x.amt=+a;if(c)x.cat=c;if(mm!==null)x.memo=mm;if(/^\d{4}-\d\d-\d\d$/.test(d||''))x.date=d;delete x.x;save();render()}
-function delK(id){if(confirm('削除しますか?')){s.tx=s.tx.filter(x=>x.id!=id);save();render()}}
+function delK(id){if(ui.arm!=id){ui.arm=id;render();toast('もう一度「削除」を押すと削除します');return}ui.arm=null;s.tx=s.tx.filter(x=>x.id!=id);save();render();toast('削除しました')}
 
 /* 筋トレ */
 function rW(){const d=ui.wd,b=s.body[d]||{};
@@ -73,7 +77,7 @@ return `<div class=card><input type=date value="${d}" onchange="ui.wd=this.value
 <div class=card><b>%重量計算</b><select id=rb onchange=calc()></select><div class=r><input id=rp type=number value=80 oninput=calc()><span style="align-self:center">%</span></div><div id=rr></div></div>`+
 m([...new Set([...s.sets.map(x=>x.date),...Object.keys(s.body)])].sort().reverse(),d=>{const b=s.body[d],a=s.sets.filter(x=>x.date==d);
 return `<h3>${dd(d)}${b?` 体重${b.bw??'-'}kg タンパク質${b.pro??'-'}g`:''}</h3><div class=card>${m([...new Set(a.map(x=>x.ex))],id=>{const e=exn(id),g=a.filter(x=>x.ex==id);
-return `<b>${esc(e.name)}</b> <span class=m>${esc(e.tags.join('・'))} / Vol ${N(g.reduce((p,x)=>p+x.w*x.r,0))}</span>`+m(g,x=>`<div class=it><span>${setNo(x)}: ${x.w}kg×${x.r}回 <span class=m>1RM ${e1(x.w,x.r).toFixed(1)}</span></span><span><button onclick="editS('${x.id}')">✎</button><button onclick="delS('${x.id}')">✕</button></span></div>`)}).join('')||'<span class=m>セット記録なし</span>'}</div>`})}
+return `<b>${esc(e.name)}</b> <span class=m>${esc(e.tags.join('・'))} / Vol ${N(g.reduce((p,x)=>p+x.w*x.r,0))}</span>`+m(g,x=>`<div class=it><span>${setNo(x)}: ${x.w}kg×${x.r}回 <span class=m>1RM ${e1(x.w,x.r).toFixed(1)}</span></span><span><button onclick="editS('${x.id}')">✎</button><button onclick="delS('${x.id}')"${ui.arm==x.id?' style="background:#ff3b30;color:#fff;border-color:#ff3b30"':''}>${ui.arm==x.id?'削除':'✕'}</button></span></div>`)} )||'<span class=m>セット記録なし</span>'}</div>`})}
 function selEx(id){id=id||ui.ex||(s.ex[0]||{}).id;if(!id)return;ui.ex=id;q('#ex').value=id;
 const S=s.sets.filter(x=>x.ex==id),pv=S.filter(x=>x.date<ui.wd).map(x=>x.date).sort().pop(),pa=S.filter(x=>x.date==pv),k=ui.keep||(pa.length?pa[pa.length-1]:null);
 q('#prev').textContent=pv?`前回 ${pv}: `+pa.map(x=>x.w+'×'+x.r).join(', '):'前回記録なし';
@@ -89,7 +93,7 @@ function editE(){const e=s.ex.find(x=>x.id==ui.ex);if(!e)return;const n=prompt('
 if(!n.trim()){if(s.sets.some(x=>x.ex==e.id))return alert('記録がある種目は削除できません');if(confirm('削除しますか?')){s.ex=s.ex.filter(x=>x!=e);ui.ex=null}}
 else{e.name=n.trim();const t=prompt('部位タグ(カンマ区切り)',e.tags.join(','));if(t!==null)e.tags=tg(t)}save();render()}
 function editS(id){const x=s.sets.find(y=>y.id==id),w=prompt('重量kg',x.w);if(w===null)return;const r=prompt('回数',x.r);if(w!==''&&+w>=0)x.w=+w;if(+r>0)x.r=+r;delete x.x;save();render()}
-function delS(id){if(confirm('削除しますか?')){s.sets=s.sets.filter(x=>x.id!=id);save();render()}}
+function delS(id){if(ui.arm!=id){ui.arm=id;render();toast('もう一度「削除」を押すと削除します');return}ui.arm=null;s.sets=s.sets.filter(x=>x.id!=id);save();render();toast('削除しました')}
 
 /* 集計 */
 function ch(v,type){const k=v.filter(x=>x!=null);if(!k.length)return'<div class=m>データなし</div>';const mx=Math.max(...k),mn=type=='line'?Math.min(...k):0,w=300,h=100,sx=w/v.length,y=x=>h-6-(x-mn)/((mx-mn)||1)*(h-14);
@@ -140,7 +144,7 @@ if(await saveF((ui.ok=='k'?'kakeibo_':'training_')+td().replace(/-/g,'')+'.csv',
 function dl(f){const a=document.createElement('a');a.href=URL.createObjectURL(f);a.download=f.name;a.click()}
 async function saveF(n,t,ty){const f=new File([ty=='text/csv'?'\ufeff'+t:t],n,{type:ty});try{if(navigator.canShare&&navigator.canShare({files:[f]})){await navigator.share({files:[f]});return 1}}catch(e){if(e.name=='AbortError')return 0}dl(f);return 1}
 async function backup(){if(await saveF('kiroku_'+td()+'.json',JSON.stringify(s),'application/json')){s.set.last=Date.now();save();render();toast('バックアップしました')}}
-async function imp(f){if(!f)return;try{const o=JSON.parse(await f.text());if(!o.cats||!o.tx)throw 0;if(!confirm('現在のデータを上書きして読み込みますか?'))return;s=Object.assign(D(),o);s.set=Object.assign(D().set,o.set);save();render();toast('読み込みました')}catch(e){alert('読み込めないファイルです')}}
+async function imp(f){if(!f)return;try{const o=JSON.parse(await f.text());if(!o.cats||!o.tx)throw 0;if(!confirm('現在のデータを上書きして読み込みますか?'))return;s=norm(o);save();render();toast('読み込みました')}catch(e){alert('読み込めないファイルです')}}
 function rC(){return `<div class=card><b>バックアップ</b><div class=m>最終: ${new Date(s.set.last).toLocaleDateString('ja-JP')}</div>
 <div class=r><button class=pri onclick=backup()>書き出し</button><button onclick="q('#imp').click()">読み込み</button></div><input id=imp type=file accept=.json hidden onchange=imp(this.files[0])>
 <div class=m>リマインド間隔(日)</div><input type=number min=1 value=${s.set.days} onchange="s.set.days=Math.max(1,+this.value||7);save()"></div>`+
