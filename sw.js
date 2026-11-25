@@ -1,4 +1,4 @@
-const V = 'kiroku-v1';
+const V = 'kiroku-v2';
 const ASSETS = ['./', './index.html', './manifest.json', './icon-180.png', './icon-512.png'];
 
 self.addEventListener('install', (e) => {
@@ -18,6 +18,7 @@ self.addEventListener('activate', (e) => {
 // ネットワーク優先（更新を確実に反映）、失敗時はキャッシュから返す（オフライン起動用）
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
+  if (new URL(e.request.url).origin !== self.location.origin) return;
   e.respondWith(
     fetch(e.request)
       .then((res) => {
